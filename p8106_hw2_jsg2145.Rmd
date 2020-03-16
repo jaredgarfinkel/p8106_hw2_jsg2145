@@ -8,6 +8,8 @@ output: github_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(viridis)
+library(caret)
+library(glmnet)
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
@@ -23,3 +25,85 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
+
+```{r}
+collegedf = read_csv("./data/College.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(college = factor(college)) %>% 
+  select(outstate, everything())
+
+college.train = collegedf %>% 
+  filter(college != "Columbia University")
+```
+
+```{r}
+x.train = model.matrix(outstate ~ apps + accept + enroll + top10perc + top25perc + f_undergrad + p_undergrad + room_board + books + personal + ph_d + terminal + s_f_ratio + perc_alumni + expend + grad_rate, college.train)[,-1]
+
+y.train = pull(college.train, outstate)
+
+ctrl1 = trainControl(method = "repeatedcv", number = 10, repeats = 5)
+```
+
+```{r pcr in caret}
+college.pcr = train(x.train, y.train,
+                    method = "pcr",
+                    tuneLength = ncol(college.train),
+                    trControl = ctrl1,
+                    preProc = c("center", "scale"))
+```
+
+```{r}
+ggplot(college.pcr, highlight = TRUE)
+```
+
+```{r lasso in glmnet}
+cv.lasso = cv.glmnet(x.train, y.train, 
+                     type.measure = "mse", 
+                     alpha = 1, 
+                     lambda = exp(seq(2, 5, length = 100)))
+
+plot(cv.lasso)
+```
+```{r ridge in glmnet}
+cv.ridge = cv.glmnet(x.train, y.train, 
+                     type.measure = "mse", 
+                     alpha = 0, 
+                     lambda = exp(seq(3, 8, length = 100)))
+
+plot(cv.ridge)
+```
+
+
+```{r lasso in caret}
+college.lasso = train(x.train, y.train,
+                    method = "glmnet",
+                    tuneGrid = expand.grid(alpha = 1, 
+                                          lambda = exp(seq(2, 5, length = 100))),
+                    trControl = ctrl1)
+```
+
+```{r ridge in caret}
+college.ridge = train(x.train, y.train,
+                    method = "glmnet",
+                    tuneGrid = expand.grid(alpha = 0, 
+                                          lambda = exp(seq(3, 8, length = 100))),
+                    trControl = ctrl1)
+```
+
+```{r}
+college.lm <- train(x.train, y.train,
+                method = "lm",
+                trControl = ctrl1)
+```
+
+```{r results}
+resamp <- resamples(list(lasso = college.lasso, 
+                         ridge = college.ridge, 
+                         pcr = college.pcr,
+                         lm = college.lm))
+
+summary(resamp)
+
+bwplot(resamp, metric = "RMSE")
+```
+
