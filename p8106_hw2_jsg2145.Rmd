@@ -10,6 +10,7 @@ library(tidyverse)
 library(viridis)
 library(caret)
 library(glmnet)
+library(patchwork)
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
@@ -108,39 +109,39 @@ bwplot(resamp, metric = "RMSE")
 ```
 
 ```{r, results = "hide"}
-college.train %>% 
+p1 = college.train %>% 
   ggplot(aes(x = apps, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p2 = college.train %>% 
   ggplot(aes(x = accept, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p3 = college.train %>% 
   ggplot(aes(x = enroll, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p4 = college.train %>% 
   ggplot(aes(x = top10perc, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p5 = college.train %>% 
   ggplot(aes(x = top25perc, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p6 = college.train %>% 
   ggplot(aes(x = f_undergrad, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p7 = college.train %>% 
   ggplot(aes(x = p_undergrad, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p8 = college.train %>% 
   ggplot(aes(x = room_board, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p9 = college.train %>% 
   ggplot(aes(x = books, y = outstate)) +
   geom_point()
 
@@ -148,28 +149,35 @@ college.train %>%
   ggplot(aes(x = ph_d, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p10 = college.train %>% 
   ggplot(aes(x = personal, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p11 = college.train %>% 
   ggplot(aes(x = terminal, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p12 = college.train %>% 
   ggplot(aes(x = s_f_ratio, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p13 = college.train %>% 
   ggplot(aes(x = perc_alumni, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p14 = college.train %>% 
   ggplot(aes(x = grad_rate, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p15 = college.train %>% 
   ggplot(aes(x = expend, y = outstate)) +
-  geom_point()
+  geom_point() + 
+  scale_x_continuous(breaks = c(0, 20000, 40000, 65000))
+```
+
+```{r, fig.height = 12, fig.width = 8}
+plots = list(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15)
+
+wrap_plots(plots, ncol = 3)
 ```
 
