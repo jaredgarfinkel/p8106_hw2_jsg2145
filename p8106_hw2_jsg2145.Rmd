@@ -11,6 +11,9 @@ library(viridis)
 library(caret)
 library(glmnet)
 library(patchwork)
+library(gam)
+library(pdp)
+library(mgcv)
 knitr::opts_chunk$set(
 	echo = TRUE,
 	warning = FALSE,
@@ -42,13 +45,13 @@ x.train = model.matrix(outstate ~ apps + accept + enroll + top10perc + top25perc
 
 y.train = pull(college.train, outstate)
 
-ctrl1 = trainControl(method = "repeatedcv", number = 10, repeats = 5)
+ctrl1 = trainControl(method = "cv", number = 5)
 ```
 
 ```{r pcr in caret}
 college.pcr = train(x.train, y.train,
                     method = "pcr",
-                    tuneLength = ncol(college.train),
+                    tuneLength = ncol(college.train) - 1,
                     trControl = ctrl1,
                     preProc = c("center", "scale"))
 ```
@@ -95,17 +98,6 @@ college.ridge = train(x.train, y.train,
 college.lm <- train(x.train, y.train,
                 method = "lm",
                 trControl = ctrl1)
-```
-
-```{r results}
-resamp <- resamples(list(lasso = college.lasso, 
-                         ridge = college.ridge, 
-                         pcr = college.pcr,
-                         lm = college.lm))
-
-summary(resamp)
-
-bwplot(resamp, metric = "RMSE")
 ```
 
 ```{r, results = "hide"}
@@ -179,5 +171,82 @@ p15 = college.train %>%
 plots = list(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15)
 
 wrap_plots(plots, ncol = 3)
+```
+
+```{r, fig.height = 12, fig.width = 8}
+spline.term9 = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), df = 9)
+spline.term10 = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), df = 10)
+spline.term11 = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), df = 11)
+spline.term12 = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), df = 12)
+spline.term13 = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), df = 13)
+spline.termA = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), cv = TRUE)
+spline.termA$df
+
+
+plot(college.train$terminal, college.train$outstate)
+points(x.train, cex = .5, 
+       col = "darkgrey")
+lines(spline.term11, col = "red ", lwd = 2)
+lines(spline.termA, col = "blue", lwd = 2)
+legend("topright", legend = c("11 DF", "4.7 DF"),
+       col = c("red", "blue"), lty = 1, lwd = 2, cex = .8)
+```
+
+```{r}
+gam1 = gam(outstate ~ apps + accept + enroll + top10perc + top25perc + f_undergrad + p_undergrad + room_board + books + personal + ph_d + terminal + s_f_ratio + perc_alumni + expend + grad_rate, data = college.train)
+```
+
+```{r, fig.height = 12, fig.width = 8}
+par(mfrow = c(4,4))
+plot(gam1, pages=1,residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+
+
+vis.gam(gam1, view = c("apps", "accept"),
+        plot.type = "contour", color = "topo")
+```
+
+```{r gam in caret}
+set.seed(22)
+college.gam = train(x.train, y.train,
+                    method = "gam",
+                    tuneGrid = data.frame(method = "GCV.Cp", 
+                                         select = c(TRUE,FALSE)),
+                    trControl = ctrl1)
+
+college.gam$bestTune
+
+college.gam$finalModel
+```
+
+
+```{r}
+college.spline = train(x.train, y.train,
+                       method = "earth", tuneLength = 17, trControl = ctrl1)
+
+plot(college.spline)
+
+partial(college.spline, pred.var = "expend", plot = TRUE, rug = TRUE)
+```
+
+```{r results, fig.length = 12, fig.width = 8}
+resamp <- resamples(list(lasso = college.lasso, 
+                         ridge = college.ridge, 
+                         pcr = college.pcr,
+                         lm = college.lm,
+                         spline = college.spline,
+                         gam = college.gam))
+
+summary(resamp)
+
+bwplot(resamp, metric = "RMSE")
+```
+
+```{r}
+columbia = collegedf %>% 
+  filter(college == "Columbia University")
+
+pred.spline = predict(college.spline, newdata = columbia)
+
+pred.gam = predict(gam1, newdata = columbia)
 ```
 
