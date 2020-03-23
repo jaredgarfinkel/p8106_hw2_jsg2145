@@ -48,19 +48,19 @@ y.train = pull(college.train, outstate)
 ctrl1 = trainControl(method = "cv", number = 5)
 ```
 
-```{r pcr in caret}
+```{r pcr in caret, echo = FALSE}
 college.pcr = train(x.train, y.train,
                     method = "pcr",
-                    tuneLength = ncol(college.train) - 1,
+                    tuneLength = 16,
                     trControl = ctrl1,
                     preProc = c("center", "scale"))
 ```
 
-```{r}
+```{r, echo = FALSE}
 ggplot(college.pcr, highlight = TRUE)
 ```
 
-```{r lasso in glmnet}
+```{r lasso in glmnet, echo = FALSE}
 cv.lasso = cv.glmnet(x.train, y.train, 
                      type.measure = "mse", 
                      alpha = 1, 
@@ -68,7 +68,8 @@ cv.lasso = cv.glmnet(x.train, y.train,
 
 plot(cv.lasso)
 ```
-```{r ridge in glmnet}
+
+```{r ridge in glmnet, echo = FALSE}
 cv.ridge = cv.glmnet(x.train, y.train, 
                      type.measure = "mse", 
                      alpha = 0, 
@@ -78,7 +79,7 @@ plot(cv.ridge)
 ```
 
 
-```{r lasso in caret}
+```{r lasso in caret, echo = FALSE}
 college.lasso = train(x.train, y.train,
                     method = "glmnet",
                     tuneGrid = expand.grid(alpha = 1, 
@@ -86,7 +87,7 @@ college.lasso = train(x.train, y.train,
                     trControl = ctrl1)
 ```
 
-```{r ridge in caret}
+```{r ridge in caret, echo = FALSE}
 college.ridge = train(x.train, y.train,
                     method = "glmnet",
                     tuneGrid = expand.grid(alpha = 0, 
@@ -94,7 +95,7 @@ college.ridge = train(x.train, y.train,
                     trControl = ctrl1)
 ```
 
-```{r}
+```{r, echo = FALSE}
 college.lm <- train(x.train, y.train,
                 method = "lm",
                 trControl = ctrl1)
@@ -188,9 +189,13 @@ points(x.train, cex = .5,
        col = "darkgrey")
 lines(spline.term11, col = "red ", lwd = 2)
 lines(spline.termA, col = "blue", lwd = 2)
-legend("topright", legend = c("11 DF", "4.7 DF"),
-       col = c("red", "blue"), lty = 1, lwd = 2, cex = .8)
+lines(spline.term9, col = "green", lwd = 2)
+lines(spline.term13, col = "yellow", lwd = 2)
+legend("topright", legend = c("11 DF", "4.7 DF", "9 DF", "13 DF"),
+       col = c("red", "blue", "green", "yellow"), lty = 1, lwd = 2, cex = .8)
 ```
+
+This graph shows a smoothing spline using cross validation to choose degrees of freedom compared with various other degrees of freedom.
 
 ```{r}
 gam1 = gam(outstate ~ apps + accept + enroll + top10perc + top25perc + f_undergrad + p_undergrad + room_board + books + personal + ph_d + terminal + s_f_ratio + perc_alumni + expend + grad_rate, data = college.train)
@@ -199,11 +204,16 @@ gam1 = gam(outstate ~ apps + accept + enroll + top10perc + top25perc + f_undergr
 ```{r, fig.height = 12, fig.width = 8}
 par(mfrow = c(4,4))
 plot(gam1, pages=1,residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+```
 
+The above graph shows a plot of the partial dependence of each predictor in relation to the tuition. 
 
+```{r}
 vis.gam(gam1, view = c("apps", "accept"),
         plot.type = "contour", color = "topo")
 ```
+
+This plot shows a contour of the dependence of two predictors on each other.
 
 ```{r gam in caret}
 set.seed(22)
@@ -218,22 +228,26 @@ college.gam$bestTune
 college.gam$finalModel
 ```
 
+```{r MARS in caret}
+mars_grid <- expand.grid(degree = 1:2, 
+                         nprune = 2:16)
 
-```{r}
-college.spline = train(x.train, y.train,
-                       method = "earth", tuneLength = 17, trControl = ctrl1)
+college.earth = train(x.train, y.train,
+                       method = "earth", tuneGrid = mars_grid, trControl = ctrl1)
 
-plot(college.spline)
+ggplot(college.earth)
 
-partial(college.spline, pred.var = "expend", plot = TRUE, rug = TRUE)
+partial(college.earth, pred.var = "expend", plot = TRUE, rug = TRUE)
+
+college.earth$bestTune
+
+coef(college.earth$finalModel) 
 ```
 
+Using multivariate adaptive regression spline (MARS), a final model is -0.745*"expend" - 1.294*"room_board" - 21.71*"grad_rate" - 0.337*"f_undergrad" - 1.442*"f_undergrad" - 79.612*"perc_alumni" + 0.417*"apps" + 0.947*"personal" + 4.572*"enroll" - 1.922*"accept" + 0.745*"expend."
+
 ```{r results, fig.length = 12, fig.width = 8}
-resamp <- resamples(list(lasso = college.lasso, 
-                         ridge = college.ridge, 
-                         pcr = college.pcr,
-                         lm = college.lm,
-                         spline = college.spline,
+resamp <- resamples(list(earth = college.earth,
                          gam = college.gam))
 
 summary(resamp)
@@ -245,8 +259,9 @@ bwplot(resamp, metric = "RMSE")
 columbia = collegedf %>% 
   filter(college == "Columbia University")
 
-pred.spline = predict(college.spline, newdata = columbia)
+pred.earth = predict(college.earth, newdata = columbia)
 
 pred.gam = predict(gam1, newdata = columbia)
 ```
 
+The MARS model predicts a tuition of `r pred.earth` and the GAM model predicts a tuition of `r pred.gam`. Because the MARS model has a lower RMSE it is appropriate to accept this model and predict a tuition of `r pred.earth`.
