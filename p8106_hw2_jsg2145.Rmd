@@ -56,11 +56,11 @@ college.pcr = train(x.train, y.train,
                     preProc = c("center", "scale"))
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, results = "hide", include = FALSE}
 ggplot(college.pcr, highlight = TRUE)
 ```
 
-```{r lasso in glmnet, echo = FALSE}
+```{r lasso in glmnet, echo = FALSE, results = "hide", include = FALSE}
 cv.lasso = cv.glmnet(x.train, y.train, 
                      type.measure = "mse", 
                      alpha = 1, 
@@ -69,7 +69,7 @@ cv.lasso = cv.glmnet(x.train, y.train,
 plot(cv.lasso)
 ```
 
-```{r ridge in glmnet, echo = FALSE}
+```{r ridge in glmnet, echo = FALSE, results = "hide", include = FALSE}
 cv.ridge = cv.glmnet(x.train, y.train, 
                      type.measure = "mse", 
                      alpha = 0, 
@@ -79,7 +79,7 @@ plot(cv.ridge)
 ```
 
 
-```{r lasso in caret, echo = FALSE}
+```{r lasso in caret, echo = FALSE, include = FALSE}
 college.lasso = train(x.train, y.train,
                     method = "glmnet",
                     tuneGrid = expand.grid(alpha = 1, 
@@ -87,7 +87,7 @@ college.lasso = train(x.train, y.train,
                     trControl = ctrl1)
 ```
 
-```{r ridge in caret, echo = FALSE}
+```{r ridge in caret, echo = FALSE, include = FALSE}
 college.ridge = train(x.train, y.train,
                     method = "glmnet",
                     tuneGrid = expand.grid(alpha = 0, 
@@ -95,7 +95,7 @@ college.ridge = train(x.train, y.train,
                     trControl = ctrl1)
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include = FALSE}
 college.lm <- train(x.train, y.train,
                 method = "lm",
                 trControl = ctrl1)
@@ -138,7 +138,7 @@ p9 = college.train %>%
   ggplot(aes(x = books, y = outstate)) +
   geom_point()
 
-college.train %>% 
+p16 = college.train %>% 
   ggplot(aes(x = ph_d, y = outstate)) +
   geom_point()
 
@@ -167,13 +167,13 @@ p15 = college.train %>%
   geom_point() + 
   scale_x_continuous(breaks = c(0, 20000, 40000, 65000))
 ```
-
+## Part a
 ```{r, fig.height = 12, fig.width = 8}
-plots = list(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15)
+plots = list(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16)
 
-wrap_plots(plots, ncol = 3)
+wrap_plots(plots, ncol = 4)
 ```
-
+## Part b
 ```{r, fig.height = 12, fig.width = 8}
 spline.term9 = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), df = 9)
 spline.term10 = smooth.spline(pull(college.train, terminal), pull(college.train, outstate), df = 10)
@@ -197,6 +197,7 @@ legend("topright", legend = c("11 DF", "4.7 DF", "9 DF", "13 DF"),
 
 This graph shows a smoothing spline using cross validation to choose degrees of freedom compared with various other degrees of freedom.
 
+## Part c
 ```{r}
 gam1 = gam(outstate ~ apps + accept + enroll + top10perc + top25perc + f_undergrad + p_undergrad + room_board + books + personal + ph_d + terminal + s_f_ratio + perc_alumni + expend + grad_rate, data = college.train)
 ```
@@ -228,6 +229,8 @@ college.gam$bestTune
 college.gam$finalModel
 ```
 
+## Part d
+
 ```{r MARS in caret}
 mars_grid <- expand.grid(degree = 1:2, 
                          nprune = 2:16)
@@ -254,7 +257,7 @@ summary(resamp)
 
 bwplot(resamp, metric = "RMSE")
 ```
-
+## Part e
 ```{r}
 columbia = collegedf %>% 
   filter(college == "Columbia University")
@@ -264,4 +267,4 @@ pred.earth = predict(college.earth, newdata = columbia)
 pred.gam = predict(gam1, newdata = columbia)
 ```
 
-The MARS model predicts a tuition of `r pred.earth` and the GAM model predicts a tuition of `r pred.gam`. Because the MARS model has a lower RMSE it is appropriate to accept this model and predict a tuition of `r pred.earth`.
+The MARS model predicts a tuition of `r round(pred.earth, digits = 0)` dollars and the GAM model predicts a tuition of `r pred.gam` dollars. Because the MARS model has a lower RMSE it is appropriate to accept this model and predict a tuition of `r round(pred.earth, digits = 0)` dollars.
